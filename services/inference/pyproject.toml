@@ -1,0 +1,18 @@
+[project]
+name = "inference"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1",
+    "joblib>=1.6.0",
+    "ml-common",
+    "pandas>=3.0.5",
+    "pydantic-settings>=2.15.0",
+    "scikit-learn>=1.9.1",
+    "uvicorn>=0.53.0",
+]
+
+[tool.uv.sources]
+ml-common = { path = "../../libs/ml_common" }

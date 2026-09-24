@@ -1,0 +1,162 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: ml-service-postgres
+
+    environment:
+      POSTGRES_DB: ml_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - '5432:5432'
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+    networks:
+      - ml-network
+  data-controller:
+    build:
+      context: .
+      dockerfile: services/data-controller/Dockerfile
+
+    container_name: ml-service-data-controller
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ml_service
+      DB_USER: data_controller_user
+      DB_PASSWORD: data_controller
+
+    ports:
+      - '8002:8002'
+
+    depends_on:
+      - postgres
+
+    networks:
+      - ml-network
+
+  train-controller:
+    build:
+      context: .
+      dockerfile: services/train-controller/Dockerfile
+
+    container_name: ml-service-train-controller
+
+    environment:
+      TRAIN_URL: http://train:8004
+      TRAIN_IMAGE: ml-service-train:latest
+      TRAIN_NETWORK: ml-network
+
+    ports:
+      - '8003:8003'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    networks:
+      - ml-network
+
+  model-registry:
+    build:
+      context: .
+      dockerfile: services/model-registry/Dockerfile
+
+    container_name: ml-service-model-registry
+
+    environment:
+      MODEL_STORAGE_PATH: /model-storage
+      INFERENCE_URL: http://inference:8001
+
+    ports:
+      - '8005:8005'
+
+    volumes:
+      - model-storage:/model-storage
+
+    networks:
+      - ml-network
+
+  inference:
+    build:
+      context: .
+      dockerfile: services/inference/Dockerfile
+
+    container_name: ml-service-inference
+
+    environment:
+      MODEL_STORAGE_PATH: /model-storage
+
+    ports:
+      - '8001:8001'
+
+    volumes:
+      - model-storage:/model-storage
+
+    networks:
+      - ml-network
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+
+    container_name: ml-service-gateway
+
+    environment:
+      DATA_CONTROLLER_URL: http://data-controller:8002
+      TRAIN_CONTROLLER_URL: http://train-controller:8003
+      INFERENCE_URL: http://inference:8001
+      MODEL_REGISTRY_URL: http://model-registry:8005
+
+    ports:
+      - '8000:8000'
+
+    depends_on:
+      - data-controller
+      - train-controller
+      - inference
+      - model-registry
+
+    networks:
+      - ml-network
+
+  train:
+    image: ml-service-train:latest
+
+    build:
+      context: .
+      dockerfile: services/train/Dockerfile
+
+    container_name: ml-service-train
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ml_service
+      DB_USER: train_user
+      DB_PASSWORD: train
+      MODEL_REGISTRY_URL: http://model-registry:8005
+      TRAIN_CONTROLLER_URL: http://train-controller:8003
+
+    depends_on:
+      - postgres
+      - model-registry
+      - train-controller
+
+    profiles:
+      - jobs
+
+    networks:
+      - ml-network
+
+volumes:
+  postgres-data:
+  model-storage:
+
+networks:
+  ml-network:
+    name: ml-network
