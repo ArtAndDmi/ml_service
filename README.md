@@ -40,9 +40,24 @@ CSV отправляется через `Gateway`, после чего `data-con
 1. читает файл;
 2. автоматически определяет разделитель CSV;
 3. проверяет наличие обязательных колонок;
-4. сохраняет данные в PostgreSQL.
+4. проверяет типы и допустимые значения;
+5. сохраняет данные в PostgreSQL.
 
 Поддерживаются CSV с различными separator'ами, например `,` и `;`.
+
+Доступны два режима загрузки данных:
+
+```http
+POST /load-data/replace
+```
+
+Полностью заменяет текущий обучающий dataset.
+
+```http
+POST /load-data/append
+```
+
+Добавляет новые строки к существующему dataset.
 
 ### Обучение модели
 
@@ -245,10 +260,16 @@ GET /health
 #### Загрузка данных
 
 ```http
-POST /load-data
+POST /load-data/replace
 ```
 
-Принимает CSV-файл.
+Принимает CSV-файл и полностью заменяет текущий dataset.
+
+```http
+POST /load-data/append
+```
+
+Принимает CSV-файл и добавляет его строки к текущему dataset.
 
 #### Создание training job
 
@@ -379,17 +400,21 @@ cd <repository>
 
 ### Сборка
 
-Для clean build:
+Перед первым запуском необходимо собрать Docker-образы всех сервисов, включая образ `train`. Образ `train` используется `train-controller` для запуска отдельных training jobs.
 
 ```bash
-docker compose build --no-cache
+docker compose --profile jobs build --no-cache
 ```
 
 ### Запуск
 
+Запустите основную инфраструктуру:
+
 ```bash
 docker compose up
 ```
+
+При запуске `train` не запускается как постоянно работающий контейнер. Он автоматически создаётся `train-controller` при выполнении `POST /train`.
 
 После запуска Swagger Gateway доступен по адресу:
 
@@ -403,12 +428,12 @@ http://localhost:8000/docs
 
 ### 1. Загрузить CSV
 
-Тестовые данные находятся в корне проекта: ```dataset.csv```
+Тестовые данные находятся в корне проекта: `dataset.csv`
 
 Через Gateway:
 
 ```text
-POST /load-data
+POST /load-data/replace
 ```
 
 ### 2. Запустить обучение
@@ -472,7 +497,14 @@ docker compose down
 docker compose down -v
 ```
 
-После этого следующий `docker compose up --build` создаст окружение с нуля и снова выполнит PostgreSQL init script.
+После этого следующий запуск:
+
+```bash
+docker compose --profile jobs build --no-cache
+docker compose up
+```
+
+создаст окружение с нуля и снова выполнит PostgreSQL init script.
 
 ## Локальная разработка
 
@@ -487,6 +519,31 @@ uv run uvicorn src.main:app --reload --port 8000
 ```
 
 `ml_common` подключается как локальная dependency к сервисам, которым нужна общая ML-логика.
+
+## Тестирование
+
+В проекте используются unit-тесты на `pytest`.
+
+Тесты реализованы для следующих компонентов:
+
+- `data-controller` — парсинг и валидация CSV;
+- `train-controller` — управление lifecycle training jobs.
+
+Для запуска тестов необходимо перейти в директорию соответствующего сервиса:
+
+```bash
+cd services/data-controller
+uv run pytest
+```
+
+или:
+
+```bash
+cd services/train-controller
+uv run pytest
+```
+
+Тесты не требуют запуска Docker или PostgreSQL.
 
 ## Конфигурация
 
@@ -544,7 +601,7 @@ MODEL_STORAGE_PATH=/model-storage
 - хранение метрик модели (`RMSE`, `MAE`, `R²`) вместе с metadata;
 - structured logging;
 - централизованный error handling;
-- unit и integration tests;
+- расширение unit и integration test coverage;
 - healthchecks и readiness checks в Docker Compose;
 - миграции БД;
 - полноценное object storage вместо локального Docker volume;

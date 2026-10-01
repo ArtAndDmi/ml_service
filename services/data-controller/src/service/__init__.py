@@ -1,5 +1,6 @@
-from src.service.csv_parser import read_csv
+from src.service.csv import read_csv, parse_and_validate_csv
 
 __all__ = [
-    'read_csv'
+    'read_csv',
+    'parse_and_validate_csv'
 ]

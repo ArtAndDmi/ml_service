@@ -3,11 +3,11 @@ from pydantic import BaseModel
 
 class PredictRequest(BaseModel):
     carat: float
-    depth: float
-    table: float
-    x: float
-    y: float
-    z: float
+    depth: float | None = None
+    table: float | None = None
+    x: float | None = None
+    y: float | None = None
+    z: float | None = None
     cut: str
     color: str
     clarity: str

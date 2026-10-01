@@ -9,6 +9,8 @@ from sklearn.metrics import (
 )
 from sklearn.pipeline import Pipeline
 
+from src.config import settings
+
 
 @dataclass
 class ValidationMetrics:
@@ -51,7 +53,7 @@ def validate_model(
         ),
     )
 
-    is_valid = metrics.r2 > 0
+    is_valid = metrics.r2 >= settings.model_min_r2
 
     return ValidationResult(
         metrics=metrics,

@@ -28,7 +28,8 @@ class JobManager:
             self,
             job_id: str,
             status: JobStatus,
-            model_version: str | None = None
+            model_version: str | None = None,
+            error: str | None = None
     ) -> TrainStatusResponse | None:
         job = self.jobs.get(job_id)
 
@@ -38,7 +39,12 @@ class JobManager:
         updated_job = TrainStatusResponse(
             job_id=job_id,
             status=status,
-            model_version=model_version
+            model_version=(
+                model_version
+                if model_version is not None
+                else job.model_version
+            ),
+            error=error
         )
 
         self.jobs[job_id] = updated_job

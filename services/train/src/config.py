@@ -13,6 +13,8 @@ class Settings(BaseSettings):
 
     job_id: str
 
+    model_min_r2: float = 0.7
+
     model_config = SettingsConfigDict(
         env_file='.env',
         env_file_encoding='utf-8',

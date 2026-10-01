@@ -10,6 +10,7 @@ def run_train_container(job_id: str) -> None:
         image=settings.train_image,
         environment={
             'JOB_ID': job_id,
+            'MODEL_MIN_R2': '0.7',
             'DB_HOST': 'postgres',
             'DB_PORT': '5432',
             'DB_NAME': 'ml_service',

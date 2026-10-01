@@ -1,4 +1,5 @@
 import httpx
+from fastapi import HTTPException
 
 from src.config import settings
 
@@ -10,14 +11,16 @@ timeout = httpx.Timeout(
     pool=5.0,
 )
 
+
 async def upload_data(
+        endpoint: str,
         filename: str,
         content: bytes,
         content_type: str | None
 ) -> dict:
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(
-            f'{settings.data_controller_url}/data/upload',
+            f'{settings.data_controller_url}{endpoint}',
             files={
                 'file': (
                     filename,
@@ -27,6 +30,15 @@ async def upload_data(
             }
         )
 
-        response.raise_for_status()
+        if response.is_error:
+            detail = response.json().get(
+                'detail',
+                'Data Controller request failed'
+            )
+
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=detail
+            )
 
         return response.json()

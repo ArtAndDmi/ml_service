@@ -1,16 +1,37 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 
-from src.service import job_manager, run_train_container
+from src.enums import JobStatus
+from src.service.job_manager import job_manager
+from src.service.docker_runner import run_train_container
 from src.schemas import TrainResponse, TrainStatusResponse, TrainUpdateRequest
 
 router = APIRouter(prefix='/train')
 
 
+def start_training_job(job_id: str) -> None:
+    try:
+        run_train_container(job_id=job_id)
+
+        job_manager.update_job(
+            job_id=job_id,
+            status=JobStatus.RUNNING
+        )
+
+    except Exception:
+        job_manager.update_job(
+            job_id=job_id,
+            status=JobStatus.FAILED
+        )
+
+
 @router.post('', response_model=TrainResponse)
-async def train():
+async def train(background_tasks: BackgroundTasks):
     job = job_manager.create_job()
 
-    run_train_container(job_id=job.job_id)
+    background_tasks.add_task(
+        start_training_job,
+        job.job_id
+    )
 
     return job
 

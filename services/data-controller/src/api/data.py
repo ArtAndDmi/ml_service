@@ -1,49 +1,62 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from src.service import read_csv
 from src.db.session import get_session
-from src.repositories.training_data import insert_training_data
+from src.repositories.training_data import (
+    append_training_data,
+    replace_training_data,
+)
 from src.schemas import LoadDataResponse
+from src.service import parse_and_validate_csv
 
 router = APIRouter(prefix='/data')
 
-REQUIRED_COLUMNS = {
-    'carat',
-    'depth',
-    'table',
-    'x',
-    'y',
-    'z',
-    'cut',
-    'color',
-    'clarity',
-    'price'
-}
+
+def parse_csv(content: bytes):
+    try:
+        return parse_and_validate_csv(content)
+    except ValueError as error:
+        detail = error.args[0] if error.args else 'Invalid CSV file'
+
+        raise HTTPException(
+            status_code=422,
+            detail=detail,
+        ) from error
 
 
-@router.post('/upload', response_model=LoadDataResponse)
-async def upload_data(
+@router.post('/replace', response_model=LoadDataResponse)
+async def replace_data(
         file: UploadFile = File(...),
         session: Session = Depends(get_session)
 ):
     content = await file.read()
-    df = read_csv(content)
 
-    missing_columns = REQUIRED_COLUMNS - set(df.columns)
+    df = parse_csv(content)
 
-    if missing_columns:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                'message': 'CSV has invalid structure',
-                'missing_columns': sorted(missing_columns)
-            }
-        )
-
-    rows_loaded = insert_training_data(
+    rows_loaded = replace_training_data(
         session=session,
-        df=df
+        df=df,
+    )
+
+    return {
+        'filename': file.filename,
+        'rows_received': rows_loaded,
+        'status': 'received'
+    }
+
+
+@router.post('/append', response_model=LoadDataResponse)
+async def append_data(
+        file: UploadFile = File(...),
+        session: Session = Depends(get_session)
+):
+    content = await file.read()
+
+    df = parse_csv(content)
+
+    rows_loaded = append_training_data(
+        session=session,
+        df=df,
     )
 
     return {

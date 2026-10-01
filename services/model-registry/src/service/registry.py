@@ -1,5 +1,6 @@
 from src.storage.filesystem import save_model, model_exists, get_models
 from src.clients.inference import activate_model as activate_inference_model
+from src.storage.active_model import save_active_model_id
 
 
 def register_model(content: bytes) -> str:
@@ -26,5 +27,9 @@ def activate_model(model_id: str) -> None:
         )
 
     activate_inference_model(
+        model_id=model_id
+    )
+
+    save_active_model_id(
         model_id=model_id
     )
